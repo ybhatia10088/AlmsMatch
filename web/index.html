@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AlmsMatch</title>
+<style>
+  :root {
+    --accent: #1b7a5c;
+    --accent-dark: #145c45;
+    --ink: #1a1f1c;
+    --muted: #6b756f;
+    --bg: #fafaf8;
+    --card: #ffffff;
+    --line: #e2e6e2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    padding: 28px 32px 8px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+  }
+  header h1 { margin: 0; font-size: 1.6rem; }
+  header p { margin: 4px 0 16px; color: var(--muted); }
+  main { max-width: 780px; margin: 0 auto; padding: 32px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  label { display: block; font-weight: 600; margin: 18px 0 6px; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 6px; font-size: 0.95rem; font-family: inherit;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  .checks { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+  .checks label { display: flex; align-items: center; gap: 6px; font-weight: 400; margin: 0; }
+  .range-row { display: flex; align-items: center; gap: 14px; }
+  .range-row input[type=range] { flex: 1; }
+  .range-row output { font-weight: 600; min-width: 80px; text-align: right; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+  .toggle-row label { margin: 0; font-weight: 400; }
+  button {
+    font-family: inherit; font-size: 0.95rem; font-weight: 600;
+    border: none; border-radius: 6px; padding: 10px 18px; cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .btn-ghost { background: transparent; color: var(--muted); }
+  .actions { margin-top: 26px; display: flex; gap: 12px; align-items: center; }
+  .status { color: var(--muted); font-size: 0.9rem; }
+  .status.error { color: #b3261e; }
+
+  .trace-panel {
+    background: #12211b; color: #cdeedd; border-radius: 8px;
+    padding: 14px 16px; font-family: "SF Mono", Menlo, monospace;
+    font-size: 0.78rem; line-height: 1.55; overflow-x: auto;
+    white-space: pre; margin-bottom: 24px;
+  }
+  .trace-panel .label {
+    color: #8fd6b4; font-family: inherit; font-weight: 700;
+    letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.72rem;
+    margin-bottom: 8px; display: block;
+  }
+  .summary-line { color: var(--muted); margin-bottom: 18px; font-size: 0.9rem; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 16px;
+  }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .card-head h3 { margin: 0; font-size: 1.1rem; }
+  .score-badge {
+    background: var(--accent); color: white; font-weight: 700;
+    border-radius: 20px; padding: 3px 12px; font-size: 0.9rem; white-space: nowrap;
+  }
+  .card .meta { color: var(--muted); font-size: 0.85rem; margin: 4px 0 10px; }
+  .blend-line {
+    font-family: "SF Mono", Menlo, monospace; font-size: 0.78rem;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .why, .concern { font-size: 0.9rem; margin: 6px 0; }
+  .why b, .concern b { color: var(--accent-dark); }
+  .signals { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.82rem; }
+  .card-actions { margin-top: 14px; }
+
+  .receipt {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 28px; text-align: center;
+  }
+  .receipt .check { font-size: 2.4rem; }
+  .receipt h2 { margin: 8px 0 4px; }
+  .receipt .amount { font-size: 1.8rem; font-weight: 700; color: var(--accent-dark); }
+  .receipt .rationale { color: var(--muted); margin: 14px 0; font-style: italic; }
+  .receipt .ts { color: var(--muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AlmsMatch</h1>
+  <p>Point a giving budget at a graph of nonprofits and let a Jac walker find the real fits.</p>
+</header>
+
+<main>
+
+  <!-- Screen 1: profile -->
+  <section id="screen-profile" class="screen active">
+    <label for="f-name">Your name</label>
+    <input type="text" id="f-name" placeholder="e.g. Priya">
+
+    <label>Causes you fund <span class="hint">(traversed as CaresAbout edges to CauseHub nodes)</span></label>
+    <div class="checks" id="f-causes">
+      <label><input type="checkbox" value="climate"> Climate</label>
+      <label><input type="checkbox" value="education"> Education</label>
+      <label><input type="checkbox" value="housing"> Housing</label>
+      <label><input type="checkbox" value="health"> Health</label>
+      <label><input type="checkbox" value="food_security"> Food Security</label>
+    </div>
+
+    <label for="f-budget">Annual giving budget</label>
+    <div class="range-row">
+      <input type="range" id="f-budget" min="500" max="100000" step="500" value="10000">
+      <output id="f-budget-out">$10,000</output>
+    </div>
+
+    <label for="f-geo">Your geography</label>
+    <select id="f-geo">
+      <option>San Francisco Bay Area</option>
+      <option>California</option>
+      <option>United States</option>
+      <option>Global</option>
+    </select>
+
+    <label for="f-values">What do you want your giving to accomplish? <span class="hint">(grounds the LLM rationale)</span></label>
+    <textarea id="f-values" placeholder="I want my giving to go where a small amount of money still changes the outcome..."></textarea>
+
+    <label for="f-exclusions">Exclusions <span class="hint">(comma-separated, hard filter)</span></label>
+    <input type="text" id="f-exclusions" placeholder="e.g. protest">
+
+    <div class="toggle-row">
+      <input type="checkbox" id="f-use-llm" checked>
+      <label for="f-use-llm">Use byLLM reasoning (uncheck for the deterministic-only fallback)</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="btn-find">Find matches</button>
+      <button class="btn-secondary" id="btn-demo">Load demo profile (Priya)</button>
+      <span class="status" id="profile-status"></span>
+    </div>
+  </section>
+
+  <!-- Screen 2: results -->
+  <section id="screen-results" class="screen">
+    <div class="trace-panel">
+      <span class="label">Traversal trace &mdash; MatchFinder walker</span>
+      <div id="trace-lines"></div>
+    </div>
+    <div class="summary-line" id="results-summary"></div>
+    <div id="results-cards"></div>
+    <div class="actions">
+      <button class="btn-ghost" id="btn-back-profile">&larr; back to profile</button>
+    </div>
+  </section>
+
+  <!-- Screen 3: pledge confirmation -->
+  <section id="screen-pledge" class="screen">
+    <div class="receipt">
+      <div class="check">&#10003;</div>
+      <h2>Pledge committed</h2>
+      <div class="amount" id="receipt-amount"></div>
+      <div id="receipt-target"></div>
+      <div class="rationale" id="receipt-rationale"></div>
+      <div class="ts" id="receipt-ts"></div>
+    </div>
+    <div class="actions">
+      <button class="btn-secondary" id="btn-back-results">&larr; back to matches</button>
+      <button class="btn-ghost" id="btn-start-over">start over</button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// jac start picks a free port at boot and prints it ("Port 8000 is in use,
+// using port 8001 instead"); match this to whatever the running server
+// actually reported before demoing.
+const API_BASE = "http://localhost:8001";
+
+async function callWalker(name, body) {
+  const res = await fetch(`${API_BASE}/walker/${name}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const envelope = await res.json();
+  if (!envelope.ok) throw new Error(envelope.error?.message || "request failed");
+  return envelope.data.reports;
+}
+
+async function callFunction(name, body = {}) {
+  const res = await fetch(`${API_BASE}/function/${name}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const envelope = await res.json();
+  if (!envelope.ok) throw new Error(envelope.error?.message || "request failed");
+  return envelope.data.result;
+}
+
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+const budgetInput = document.getElementById("f-budget");
+const budgetOut = document.getElementById("f-budget-out");
+function syncBudgetOut() {
+  budgetOut.textContent = "$" + Number(budgetInput.value).toLocaleString();
+}
+budgetInput.addEventListener("input", syncBudgetOut);
+syncBudgetOut();
+
+function currentProfile() {
+  const causes = Array.from(document.querySelectorAll("#f-causes input:checked")).map(c => c.value);
+  const exclusions = document.getElementById("f-exclusions").value
+    .split(",").map(s => s.trim()).filter(s => s.length > 0);
+  return {
+    name: document.getElementById("f-name").value.trim(),
+    cause_areas: causes,
+    annual_budget: Number(budgetInput.value),
+    geography: document.getElementById("f-geo").value,
+    values_statement: document.getElementById("f-values").value.trim(),
+    exclusions: exclusions,
+    top_n: 5,
+    use_llm: document.getElementById("f-use-llm").checked
+  };
+}
+
+document.getElementById("btn-demo").addEventListener("click", async () => {
+  const status = document.getElementById("profile-status");
+  status.textContent = "loading Priya's profile...";
+  status.className = "status";
+  try {
+    const p = await callFunction("demo_profile");
+    document.getElementById("f-name").value = p.name;
+    document.querySelectorAll("#f-causes input").forEach(c => {
+      c.checked = p.cause_areas.includes(c.value);
+    });
+    budgetInput.value = p.annual_budget;
+    syncBudgetOut();
+    document.getElementById("f-geo").value = p.geography;
+    document.getElementById("f-values").value = p.values_statement;
+    document.getElementById("f-exclusions").value = p.exclusions.join(", ");
+    status.textContent = "loaded.";
+  } catch (e) {
+    status.textContent = "could not reach the API: " + e.message;
+    status.className = "status error";
+  }
+});
+
+let lastProfile = null;
+
+document.getElementById("btn-find").addEventListener("click", async () => {
+  const status = document.getElementById("profile-status");
+  const profile = currentProfile();
+  if (!profile.name) {
+    status.textContent = "enter a name first.";
+    status.className = "status error";
+    return;
+  }
+  status.textContent = "walking the graph...";
+  status.className = "status";
+  try {
+    const reports = await callWalker("find_matches", profile);
+    if (!reports.length) {
+      status.textContent = "no report came back.";
+      status.className = "status error";
+      return;
+    }
+    lastProfile = profile;
+    renderResults(reports[0]);
+    showScreen("screen-results");
+  } catch (e) {
+    status.textContent = "match run failed: " + e.message;
+    status.className = "status error";
+  }
+});
+
+function renderResults(report) {
+  document.getElementById("trace-lines").textContent = report.trace.join("\n");
+  document.getElementById("results-summary").textContent =
+    `${report.considered} nonprofits considered, ${report.rejected.length} excluded, top ${report.matches.length} shown.`;
+
+  const container = document.getElementById("results-cards");
+  container.innerHTML = "";
+  report.matches.forEach((m, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    let blendHtml = "";
+    if (m.reasoned) {
+      blendHtml = `<div class="blend-line">graph ${m.base_score}/100 + by llm() ${m.llm_score}/100 &rarr; blended ${m.score}/100</div>`;
+    }
+    const why = m.rationale ? `<div class="why"><b>Why:</b> ${escapeHtml(m.rationale)}</div>` : "";
+    const concern = m.concern ? `<div class="concern"><b>Concern:</b> ${escapeHtml(m.concern)}</div>` : "";
+    const signals = m.signals.map(s => `<li>${escapeHtml(s)}</li>`).join("");
+
+    card.innerHTML = `
+      <div class="card-head">
+        <h3>${i + 1}. ${escapeHtml(m.name)}</h3>
+        <span class="score-badge">${m.score}/100</span>
+      </div>
+      <div class="meta">${escapeHtml(m.geography)} &middot; $${m.annual_budget.toLocaleString()} annual budget</div>
+      ${blendHtml}
+      ${why}
+      ${concern}
+      <ul class="signals">${signals}</ul>
+      <div class="card-actions">
+        <button class="btn-primary btn-pledge" data-name="${escapeAttr(m.name)}" data-rationale="${escapeAttr(m.rationale)}">
+          Pledge $${lastProfile.annual_budget.toLocaleString()}
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  container.querySelectorAll(".btn-pledge").forEach(btn => {
+    btn.addEventListener("click", () => commitPledge(btn.dataset.name, btn.dataset.rationale));
+  });
+}
+
+async function commitPledge(targetName, rationale) {
+  try {
+    const reports = await callWalker("commit_pledge", {
+      investor_name: lastProfile.name,
+      target_name: targetName,
+      amount: lastProfile.annual_budget,
+      rationale: rationale || ""
+    });
+    if (!reports.length) {
+      alert("Could not commit that pledge - the org wasn't found on this walk.");
+      return;
+    }
+    const r = reports[0];
+    document.getElementById("receipt-amount").textContent = "$" + r.amount.toLocaleString();
+    document.getElementById("receipt-target").textContent = `pledged to ${r.nonprofit}`;
+    document.getElementById("receipt-rationale").textContent = r.rationale ? `"${r.rationale}"` : "";
+    document.getElementById("receipt-ts").textContent = r.timestamp;
+    showScreen("screen-pledge");
+  } catch (e) {
+    alert("Pledge failed: " + e.message);
+  }
+}
+
+document.getElementById("btn-back-profile").addEventListener("click", () => showScreen("screen-profile"));
+document.getElementById("btn-back-results").addEventListener("click", () => showScreen("screen-results"));
+document.getElementById("btn-start-over").addEventListener("click", () => showScreen("screen-profile"));
+
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s || "";
+  return d.innerHTML;
+}
+function escapeAttr(s) {
+  return (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+</script>
+
+</body>
+</html>
