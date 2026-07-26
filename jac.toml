@@ -20,6 +20,10 @@ demo = "jac run main.jac"
 # Tests attach fixture Investors/Nonprofits to the same persisted root the demo
 # uses, so this cleans on both sides - never hand the demo a graph full of TEST_*.
 test = "jac clean --data --cache --force && jac test walkers.jac -v && jac clean --data --cache --force"
+# Pinned port, not jac start's default fallback-to-next-free-port behavior -
+# that's what made the Phase 4 API_BASE port a moving target. web/index.html's
+# API_BASE is hardcoded to match this exact port; change both together.
+serve = "jac start api.jac --no_client --port 8123"
 
 # Anthropic model names are BARE (no "anthropic/" prefix) - verified against
 # jac-by-llm.md and confirmed on the wire: litellm resolves any claude-* name it

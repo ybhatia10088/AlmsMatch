@@ -187,10 +187,11 @@
 </main>
 
 <script>
-// jac start picks a free port at boot and prints it ("Port 8000 is in use,
-// using port 8001 instead"); match this to whatever the running server
-// actually reported before demoing.
-const API_BASE = "http://localhost:8001";
+// Pinned explicitly with `jac start api.jac --no_client --port 8123` so this
+// never depends on whatever else happens to be running on the machine -
+// jac start's auto-fallback-to-next-free-port behavior is what made the
+// Phase 4 port number a moving target in the first place.
+const API_BASE = "http://localhost:8123";
 
 async function callWalker(name, body) {
   const res = await fetch(`${API_BASE}/walker/${name}`, {
