@@ -1,0 +1,192 @@
+# Annex tests for walkers.jac - run with `jac test walkers.jac`.
+# Tests share one persisted root, so every fixture here uses a unique name and
+# assertions filter on it rather than counting totals on root.
+#
+# CauseHubs built here hang off the test Investor, never off root: main.jac's
+# Seeder treats "root has a CauseHub" as "already seeded", so attaching test
+# hubs to root would make a later `jac run` silently skip seeding.
+#
+# The annex resolves walkers.jac's own declarations at run time but NOT the names
+# walkers.jac imports, so `jac check` needs these spelled out here.
+
+import from nodes { Investor, Nonprofit, CauseHub, CaresAbout, TaggedAs }
+import from walkers { MatchFinder, MAX_CAUSE, geo_points, gift_bps, leverage_points, cause_points, excluded_by }
+
+test "region ladder scores containment, not string equality" {
+    assert geo_points("San Francisco Bay Area", "San Francisco Bay Area") == 25;
+    assert geo_points("San Francisco Bay Area", "California") == 18;
+    assert geo_points("San Francisco Bay Area", "United States") == 12;
+    assert geo_points("San Francisco Bay Area", "Global") == 8;
+    # An org scoped narrower than the donor may not serve her at all.
+    assert geo_points("United States", "San Francisco Bay Area") == 0;
+    assert geo_points("San Francisco Bay Area", "Mars") == 0;
+}
+
+test "leverage rewards the org where the gift is a bigger share" {
+    small = gift_bps(3000000, 10000);
+    large = gift_bps(350000000, 10000);
+    assert small > large;
+    assert leverage_points(small) > leverage_points(large);
+    assert leverage_points(gift_bps(0, 10000)) == 5;
+}
+
+test "cause points require an overlap and stay inside the cap" {
+    weights = {"climate": 3};
+    assert cause_points(["housing"], weights) == 0;
+    assert cause_points(["climate"], weights) == 35;
+    # Overlapping on more of her causes scores higher, but never past the cap.
+    both = cause_points(["climate", "food_security"], {"climate": 3, "food_security": 3});
+    assert both > 35;
+    assert both <= MAX_CAUSE;
+}
+
+test "exclusions match on mission text, case-insensitively" {
+    mission = "Funds disruptive climate PROTEST and advocacy movements.";
+    assert excluded_by("Some Fund", mission, ["protest"]) == "protest";
+    assert excluded_by("Some Fund", mission, ["nuclear"]) == "";
+    # An empty or whitespace exclusion must not match everything.
+    assert excluded_by("Some Fund", mission, ["  "]) == "";
+}
+
+test "walker scores a candidate reachable through two hubs exactly once" {
+    inv = Investor(
+        name="TEST_dedupe",
+        cause_areas=["climate", "food_security"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area"
+    );
+    root ++> inv;
+
+    climate = CauseHub(tag="climate");
+    food = CauseHub(tag="food_security");
+    inv +>:CaresAbout(weight=3):+> climate;
+    inv +>:CaresAbout(weight=2):+> food;
+
+    org = Nonprofit(
+        name="TEST_dual_tagged",
+        mission="Rescues surplus food and avoids methane emissions.",
+        cause_tags=["climate", "food_security"],
+        geography="San Francisco Bay Area",
+        annual_budget=3000000
+    );
+    root ++> org;
+    org +>:TaggedAs:+> climate;
+    org +>:TaggedAs:+> food;
+
+    rpt = (inv spawn MatchFinder()).reports[0];
+
+    assert rpt.investor == "TEST_dedupe";
+    # Two hubs both lead to this org; it must be considered and scored once.
+    assert rpt.considered == 1;
+    assert len(rpt.matches) == 1;
+    assert rpt.matches[0].name == "TEST_dual_tagged";
+    # Both of her causes matched, so cause points beat a single-tag match.
+    assert rpt.matches[0].cause_points > 35;
+}
+
+test "excluded candidates are filtered before scoring, and the walk continues" {
+    inv = Investor(
+        name="TEST_exclusion",
+        cause_areas=["climate"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area",
+        exclusions=["protest"]
+    );
+    root ++> inv;
+
+    hub = CauseHub(tag="climate");
+    inv +>:CaresAbout(weight=3):+> hub;
+
+    banned = Nonprofit(
+        name="TEST_protest_org",
+        mission="Funds disruptive climate protest movements.",
+        cause_tags=["climate"],
+        geography="Global",
+        annual_budget=5000000
+    );
+    keeper = Nonprofit(
+        name="TEST_clean_org",
+        mission="Destroys abandoned refrigerant stockpiles.",
+        cause_tags=["climate"],
+        geography="Global",
+        annual_budget=5000000
+    );
+    root ++> banned;
+    root ++> keeper;
+    banned +>:TaggedAs:+> hub;
+    keeper +>:TaggedAs:+> hub;
+
+    rpt = (inv spawn MatchFinder()).reports[0];
+
+    assert len(rpt.rejected) == 1;
+    assert "TEST_protest_org" in rpt.rejected[0];
+    # `skip` must end only the current ability - the other candidate still scores.
+    assert len(rpt.matches) == 1;
+    assert rpt.matches[0].name == "TEST_clean_org";
+}
+
+test "matches come back ranked high to low" {
+    inv = Investor(
+        name="TEST_ranking",
+        cause_areas=["climate"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area"
+    );
+    root ++> inv;
+
+    hub = CauseHub(tag="climate");
+    inv +>:CaresAbout(weight=3):+> hub;
+
+    for spec in [("TEST_rank_big", 350000000, "Global"),
+                 ("TEST_rank_mid", 15000000, "United States"),
+                 ("TEST_rank_small", 3000000, "San Francisco Bay Area")] {
+        org = Nonprofit(
+            name=spec[0],
+            mission="Reduces emissions.",
+            cause_tags=["climate"],
+            geography=spec[2],
+            annual_budget=spec[1]
+        );
+        root ++> org;
+        org +>:TaggedAs:+> hub;
+    }
+
+    rpt = (inv spawn MatchFinder(top_n=3)).reports[0];
+
+    assert len(rpt.matches) == 3;
+    assert rpt.matches[0].name == "TEST_rank_small";
+    assert rpt.matches[0].score > rpt.matches[1].score;
+    assert rpt.matches[1].score > rpt.matches[2].score;
+}
+
+test "top_n caps how many matches come back but not how many are considered" {
+    inv = Investor(
+        name="TEST_topn",
+        cause_areas=["climate"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area"
+    );
+    root ++> inv;
+
+    hub = CauseHub(tag="climate");
+    inv +>:CaresAbout(weight=3):+> hub;
+
+    for i in range(5) {
+        org = Nonprofit(
+            name=f"TEST_topn_org_{i}",
+            mission="Reduces emissions.",
+            cause_tags=["climate"],
+            geography="Global",
+            annual_budget=1000000 * (i + 1)
+        );
+        root ++> org;
+        org +>:TaggedAs:+> hub;
+    }
+
+    rpt = (inv spawn MatchFinder(top_n=2)).reports[0];
+
+    assert rpt.considered == 5;
+    assert len(rpt.matches) == 2;
+    # The trace is the demo's proof of traversal - it must cover every candidate.
+    assert len([l for l in rpt.trace if "TEST_topn_org_" in l]) == 5;
+}

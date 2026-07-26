@@ -7,6 +7,20 @@ entry-point = "main.jac"
 [run]
 diagnostics = "error"
 
+# `jac run` persists the graph under .jac/. Changing a node or edge archetype after
+# that invalidates the stored anchors and the next run dies with
+# "NodeAnchor ... is not a valid reference!". Any archetype edit = run `jac script reset`.
+# Never debug a stale-graph error live.
+#
+# --data --cache (not --all): --all also wipes .jac/packages, which would uninstall
+# byllm and the other plugins. Data + cache is the exact blast radius we want.
+[scripts]
+reset = "jac clean --data --cache --force && jac run main.jac"
+demo = "jac run main.jac"
+# Tests attach fixture Investors/Nonprofits to the same persisted root the demo
+# uses, so this cleans on both sides - never hand the demo a graph full of TEST_*.
+test = "jac clean --data --cache --force && jac test walkers.jac -v && jac clean --data --cache --force"
+
 # byLLM model config lands here in Phase 3. Env vars take precedence over this file,
 # so ANTHROPIC_API_KEY / OPENAI_API_KEY in .env override default_model's provider.
 [plugins.byllm.model]

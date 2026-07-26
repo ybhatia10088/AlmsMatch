@@ -2,7 +2,10 @@
 # Phase 1: schema + seed data. The matching walker lands in walkers.jac (Phase 2).
 
 import json;
+import io;
+import from contextlib { redirect_stdout }
 import from nodes { Investor, Nonprofit, CauseHub, Region, TaggedAs, CaresAbout, OperatesIn }
+import from walkers { MatchFinder, MatchReport, MatchResult }
 
 
 def load_seed(path: str) -> dict[str, any] {
@@ -155,13 +158,60 @@ walker GraphStats {
 }
 
 
+def show_matches(rpt: MatchReport) {
+    print("");
+    print(f"--- traversal trace for {rpt.investor} ---");
+    for line in rpt.trace {
+        print(line);
+    }
+    print("");
+    print(f"--- top {len(rpt.matches)} matches ---");
+    rank = 1;
+    for m in rpt.matches {
+        print(f"{rank}. {m.name}  [{m.score}/100]  {m.geography}");
+        for s in m.signals {
+            print(f"      {s}");
+        }
+        rank += 1;
+    }
+    if rpt.rejected {
+        print("");
+        print("--- filtered out before scoring ---");
+        for r in rpt.rejected {
+            print(f"  {r}");
+        }
+    }
+}
+
+
 with entry:__main__ {
-    seeded = root spawn Seeder();
-    stats = root spawn GraphStats();
+    # Every `report` is echoed to stdout at the spawn boundary, which buries the
+    # readable output under raw reprs. No walker here prints - they all
+    # accumulate into `has` fields - so muting stdout across the spawns drops
+    # only the echo. Under `jac start` reports become the HTTP body instead.
+    bootstrap = io.StringIO();
+    with redirect_stdout(bootstrap) {
+        seeded = root spawn Seeder();
+        stats = root spawn GraphStats();
+    }
 
     print("--- AlmsMatch graph ---");
     print(seeded.reports[0] if seeded.reports else "seed: no report");
     for line in (stats.reports[0] if stats.reports else []) {
         print(line);
+    }
+
+    # The match itself: spawn the walker ON Priya's node and let it walk.
+    # Select her by name, not "every Investor under root" - `jac test` leaves its
+    # own fixture investors attached to the same persisted root, and the demo
+    # must show one person's matches, not whatever the last test run left behind.
+    for inv in [root -->[?:Investor, name == "Priya"]] {
+        sink = io.StringIO();
+        with redirect_stdout(sink) {
+            found = inv spawn MatchFinder(top_n=5);
+        }
+        if found.reports {
+            show_matches(found.reports[0]);
+        }
     }
 }
