@@ -149,8 +149,8 @@
     </div>
 
     <div class="actions">
-      <button class="btn-primary" id="btn-find">Find matches</button>
-      <button class="btn-secondary" id="btn-demo">Load demo profile (Priya)</button>
+      <button class="btn-primary" id="btn-find" type="button">Find matches</button>
+      <button class="btn-secondary" id="btn-demo" type="button">Load demo profile (Priya)</button>
       <span class="status" id="profile-status"></span>
     </div>
   </section>
@@ -164,7 +164,7 @@
     <div class="summary-line" id="results-summary"></div>
     <div id="results-cards"></div>
     <div class="actions">
-      <button class="btn-ghost" id="btn-back-profile">&larr; back to profile</button>
+      <button class="btn-ghost" id="btn-back-profile" type="button">&larr; back to profile</button>
     </div>
   </section>
 
@@ -179,8 +179,8 @@
       <div class="ts" id="receipt-ts"></div>
     </div>
     <div class="actions">
-      <button class="btn-secondary" id="btn-back-results">&larr; back to matches</button>
-      <button class="btn-ghost" id="btn-start-over">start over</button>
+      <button class="btn-secondary" id="btn-back-results" type="button">&larr; back to matches</button>
+      <button class="btn-ghost" id="btn-start-over" type="button">start over</button>
     </div>
   </section>
 
@@ -323,7 +323,7 @@ function renderResults(report) {
       ${concern}
       <ul class="signals">${signals}</ul>
       <div class="card-actions">
-        <button class="btn-primary btn-pledge" data-name="${escapeAttr(m.name)}" data-rationale="${escapeAttr(m.rationale)}">
+        <button class="btn-primary btn-pledge" data-name="${escapeAttr(m.name)}" data-rationale="${escapeAttr(m.rationale)}" type="button">
           Pledge $${lastProfile.annual_budget.toLocaleString()}
         </button>
       </div>
