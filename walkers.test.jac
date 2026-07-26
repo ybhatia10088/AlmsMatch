@@ -17,8 +17,8 @@
 import ai;
 import from byllm.lib { MockLLM }
 import from ai { FitAssessment }
-import from nodes { Investor, Nonprofit, CauseHub, CaresAbout, TaggedAs }
-import from walkers { MatchFinder, MAX_CAUSE, LLM_WEIGHT, DET_WEIGHT, blend, geo_points, gift_bps, leverage_points, cause_points, excluded_by }
+import from nodes { Investor, Nonprofit, CauseHub, CaresAbout, TaggedAs, PledgedTo, Supports }
+import from walkers { MatchFinder, PledgeCommitter, MAX_CAUSE, LLM_WEIGHT, DET_WEIGHT, blend, geo_points, gift_bps, leverage_points, cause_points, excluded_by }
 
 test "region ladder scores containment, not string equality" {
     assert geo_points("San Francisco Bay Area", "San Francisco Bay Area") == 25;
@@ -296,4 +296,85 @@ test "use_llm=False runs the whole walk with no model at all" {
     assert len(rpt.matches) == 1;
     assert not rpt.matches[0].reasoned;
     assert rpt.matches[0].score == 95;
+}
+
+test "PledgeCommitter finds the org two hops out, writes back, and stops" {
+    inv = Investor(
+        name="TEST_pledge_donor",
+        cause_areas=["climate"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area"
+    );
+    root ++> inv;
+
+    hub = CauseHub(tag="climate");
+    inv +>:CaresAbout(weight=3):+> hub;
+
+    target = Nonprofit(
+        name="TEST_pledge_target",
+        mission="Reduces emissions.",
+        cause_tags=["climate"],
+        geography="San Francisco Bay Area",
+        annual_budget=3000000
+    );
+    other = Nonprofit(
+        name="TEST_pledge_other",
+        mission="Reduces emissions.",
+        cause_tags=["climate"],
+        geography="San Francisco Bay Area",
+        annual_budget=3000000
+    );
+    root ++> target;
+    root ++> other;
+    target +>:TaggedAs:+> hub;
+    other +>:TaggedAs:+> hub;
+
+    walked = inv spawn PledgeCommitter(
+        target_name="TEST_pledge_target",
+        amount=10000,
+        rationale="test rationale"
+    );
+
+    assert len(walked.reports) == 1;
+    receipt = walked.reports[0];
+    assert receipt.investor == "TEST_pledge_donor";
+    assert receipt.nonprofit == "TEST_pledge_target";
+    assert receipt.amount == 10000;
+    assert receipt.timestamp != "";
+
+    # Written back into the graph, not just returned in the report.
+    pledges = [inv ->:PledgedTo:->];
+    assert len(pledges) == 1;
+    assert pledges[0].rationale == "test rationale";
+    supported = [pledges[0] ->:Supports:->];
+    assert len(supported) == 1;
+    assert supported[0].name == "TEST_pledge_target";
+}
+
+test "PledgeCommitter reports nothing when the name never matches" {
+    inv = Investor(
+        name="TEST_pledge_miss",
+        cause_areas=["climate"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area"
+    );
+    root ++> inv;
+
+    hub = CauseHub(tag="climate");
+    inv +>:CaresAbout(weight=3):+> hub;
+
+    org = Nonprofit(
+        name="TEST_pledge_present",
+        mission="Reduces emissions.",
+        cause_tags=["climate"],
+        geography="San Francisco Bay Area",
+        annual_budget=3000000
+    );
+    root ++> org;
+    org +>:TaggedAs:+> hub;
+
+    walked = inv spawn PledgeCommitter(target_name="TEST_pledge_absent", amount=10000);
+
+    assert len(walked.reports) == 0;
+    assert len([inv ->:PledgedTo:->]) == 0;
 }

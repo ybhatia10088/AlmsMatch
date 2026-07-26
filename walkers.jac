@@ -11,7 +11,8 @@
 # ones that math says are worth reasoning about. Both stages live inside the walker
 # ability - the ranking decision never leaves the graph walk.
 
-import from nodes { Investor, Nonprofit, CauseHub, CaresAbout, TaggedAs }
+import datetime;
+import from nodes { Investor, Nonprofit, CauseHub, Pledge, CaresAbout, TaggedAs, PledgedTo, Supports }
 import from ai { score_fit, FitAssessment }
 
 
@@ -339,5 +340,67 @@ walker MatchFinder {
             matches=ranked[:self.top_n],
             trace=self.trace
         );
+    }
+}
+
+
+obj PledgeReceipt {
+    has investor: str;
+    has nonprofit: str;
+    has amount: int;
+    has rationale: str;
+    has timestamp: str;
+}
+
+
+# Find-first-match, not ranking: PledgeCommitter walks the same two hops
+# MatchFinder does (Investor -CaresAbout-> CauseHub -TaggedAs-> Nonprofit) to
+# reach the org by name, writes the Pledge back into the graph, and stops.
+# `disengage` is the right tool here, not `skip` - see CLAUDE.md convention 1's
+# carve-out. Because `disengage` suppresses exit abilities entirely, the receipt
+# is `report`ed at the moment of the match, immediately before disengaging, not
+# accumulated for an exit ability that will never fire.
+walker PledgeCommitter {
+    has target_name: str = "";
+    has amount: int = 0;
+    has rationale: str = "";
+
+    # Node reference to the spawn origin, captured so the write-back edges
+    # (donor -PledgedTo-> pledge) can be built once the walk has moved past it.
+    has donor: Investor | None = None;
+
+    has reports: list[PledgeReceipt] = [];
+
+    can start with Investor entry {
+        self.donor = here;
+        visit [here ->:CaresAbout:->];
+    }
+
+    can gather with CauseHub entry {
+        visit [here <-:TaggedAs:<-];
+    }
+
+    can commit with Nonprofit entry {
+        if here.name != self.target_name or self.donor is None {
+            skip;
+        }
+        donor: Investor = self.donor;
+
+        pledge = Pledge(
+            amount=self.amount,
+            rationale=self.rationale,
+            timestamp=datetime.datetime.utcnow().isoformat()
+        );
+        donor +>:PledgedTo:+> pledge;
+        pledge +>:Supports:+> here;
+
+        report PledgeReceipt(
+            investor=donor.name,
+            nonprofit=here.name,
+            amount=self.amount,
+            rationale=self.rationale,
+            timestamp=pledge.timestamp
+        );
+        disengage;
     }
 }

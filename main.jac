@@ -32,6 +32,77 @@ def priya() -> Investor {
 }
 
 
+# The actual seeding logic, factored out of the walker so `api.jac` can call it
+# silently. A `report`-emitting walker spawned from inside another walker's
+# ability still writes into the shared HTTP response's report channel (verified
+# empirically) - so a plain `def` with no `report` statement is what keeps a
+# stray "already seeded" string out of every find_matches/commit_pledge reply.
+def ensure_seeded(here: Root, data_path: str = "seed_data.json") -> dict[str, int] | None {
+    # `jac run` persists the graph in .jac/, so a second run would duplicate
+    # every node. Bail out if the hubs are already there.
+    if [here -->[?:CauseHub]] {
+        return None;
+    }
+
+    payload = load_seed(data_path);
+
+    hub_by_tag: dict[str, CauseHub] = {};
+    hubs_created = 0;
+    for tag in (payload["cause_areas"] as list[str]) {
+        hub = CauseHub(tag=tag);
+        here ++> hub;
+        hub_by_tag[tag] = hub;
+        hubs_created += 1;
+    }
+
+    region_by_name: dict[str, Region] = {};
+    regions_created = 0;
+    for rname in (payload["regions"] as list[str]) {
+        region = Region(name=rname);
+        here ++> region;
+        region_by_name[rname] = region;
+        regions_created += 1;
+    }
+
+    orgs_created = 0;
+    for rec in (payload["nonprofits"] as list[dict[str, any]]) {
+        org_tags = rec["cause_tags"] as list[str];
+        geo = rec["geography"] as str;
+
+        org = Nonprofit(
+            name=rec["name"] as str,
+            mission=rec["mission"] as str,
+            cause_tags=org_tags,
+            geography=geo,
+            annual_budget=rec["annual_budget"] as int,
+            impact_metric=rec["impact_metric"] as str,
+            ein=rec["ein"] as str
+        );
+        here ++> org;
+        orgs_created += 1;
+
+        for tag in org_tags {
+            if tag in hub_by_tag {
+                org +>:TaggedAs(weight=1):+> hub_by_tag[tag];
+            }
+        }
+        if geo in region_by_name {
+            org +>:OperatesIn:+> region_by_name[geo];
+        }
+    }
+
+    investor = priya();
+    here ++> investor;
+    for tag in investor.cause_areas {
+        if tag in hub_by_tag {
+            investor +>:CaresAbout(weight=3):+> hub_by_tag[tag];
+        }
+    }
+
+    return {"hubs": hubs_created, "regions": regions_created, "orgs": orgs_created};
+}
+
+
 walker Seeder {
     has data_path: str = "seed_data.json";
     has hubs_created: int = 0;
@@ -41,63 +112,13 @@ walker Seeder {
     has reports: list[str] = [];
 
     can seed with Root entry {
-        # `jac run` persists the graph in .jac/, so a second run would duplicate
-        # every node. Bail out if the hubs are already there.
-        if [here -->[?:CauseHub]] {
+        counts = ensure_seeded(here, self.data_path);
+        if counts is None {
             self.already_seeded = True;
-            skip;
-        }
-
-        payload = load_seed(self.data_path);
-
-        hub_by_tag: dict[str, CauseHub] = {};
-        for tag in (payload["cause_areas"] as list[str]) {
-            hub = CauseHub(tag=tag);
-            here ++> hub;
-            hub_by_tag[tag] = hub;
-            self.hubs_created += 1;
-        }
-
-        region_by_name: dict[str, Region] = {};
-        for rname in (payload["regions"] as list[str]) {
-            region = Region(name=rname);
-            here ++> region;
-            region_by_name[rname] = region;
-            self.regions_created += 1;
-        }
-
-        for rec in (payload["nonprofits"] as list[dict[str, any]]) {
-            org_tags = rec["cause_tags"] as list[str];
-            geo = rec["geography"] as str;
-
-            org = Nonprofit(
-                name=rec["name"] as str,
-                mission=rec["mission"] as str,
-                cause_tags=org_tags,
-                geography=geo,
-                annual_budget=rec["annual_budget"] as int,
-                impact_metric=rec["impact_metric"] as str,
-                ein=rec["ein"] as str
-            );
-            here ++> org;
-            self.orgs_created += 1;
-
-            for tag in org_tags {
-                if tag in hub_by_tag {
-                    org +>:TaggedAs(weight=1):+> hub_by_tag[tag];
-                }
-            }
-            if geo in region_by_name {
-                org +>:OperatesIn:+> region_by_name[geo];
-            }
-        }
-
-        investor = priya();
-        here ++> investor;
-        for tag in investor.cause_areas {
-            if tag in hub_by_tag {
-                investor +>:CaresAbout(weight=3):+> hub_by_tag[tag];
-            }
+        } else {
+            self.hubs_created = counts["hubs"];
+            self.regions_created = counts["regions"];
+            self.orgs_created = counts["orgs"];
         }
     }
 
