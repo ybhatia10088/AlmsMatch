@@ -1,0 +1,13 @@
+[project]
+name = "almsmatch"
+version = "0.1.0"
+description = "Agentic nonprofit matching engine for individual donors, built in Jac."
+entry-point = "main.jac"
+
+[run]
+diagnostics = "error"
+
+# byLLM model config lands here in Phase 3. Env vars take precedence over this file,
+# so ANTHROPIC_API_KEY / OPENAI_API_KEY in .env override default_model's provider.
+[plugins.byllm.model]
+default_model = "${LLM_MODEL:-gpt-4o-mini}"
