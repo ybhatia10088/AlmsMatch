@@ -15,6 +15,11 @@
 # the right Investor node and hands off to `spawn MatchFinder` / `spawn
 # PledgeCommitter` - the walkers already doing that work in walkers.jac.
 
+import os;
+import json;
+import from byllm.lib { MockLLM }
+import ai;
+import from ai { FitAssessment }
 import from main { ensure_seeded, priya }
 import from nodes { Investor, CauseHub, CaresAbout }
 import from walkers { MatchFinder, MatchReport, PledgeCommitter, PledgeReceipt }
@@ -25,6 +30,34 @@ import from walkers { MatchFinder, MatchReport, PledgeCommitter, PledgeReceipt }
 # attached to root - it is display data, not something we want persisted.
 def:pub demo_profile() -> Investor {
     return priya();
+}
+
+
+# DEMO_MODE=1 protects the live demo from hackathon wifi killing the LLM call,
+# without touching anything else: the walker still runs for real (real
+# traversal, real deterministic scoring, real blend math) - only the `by
+# llm()` leaf calls get replayed from a real response captured earlier
+# against claude-sonnet-5, instead of hitting the network. USE_LLM=0 was
+# already available but visibly drops the rationale/concern/blend from the
+# UI; this does not, which is the whole point of a demo-mode fallback.
+#
+# A fresh MockLLM is loaded on every call, not once at server boot: MockLLM
+# pops its outputs list and raises IndexError once exhausted (verified
+# empirically, not cycling), so a single shared instance would only survive
+# the FIRST find_matches call of the server's lifetime and silently degrade
+# to the deterministic fallback on every rehearsal after that.
+#
+# Only validated for Priya's exact demo profile - the fixture's output order
+# matches her specific candidate set's visit order, not a general one.
+def load_demo_llm() {
+    with open("fixtures/cached_matches.json") as fh {
+        fixture = json.load(fh) as dict[str, any];
+    }
+    outputs = [
+        FitAssessment(score=o["score"] as int, rationale=o["rationale"] as str, concern=o["concern"] as str)
+        for o in (fixture["llm_outputs"] as list[dict[str, any]])
+    ];
+    ai.llm = MockLLM(model_name="demo-cache", config={"outputs": outputs});
 }
 
 
@@ -42,6 +75,10 @@ walker:pub find_matches {
 
     can run with Root entry {
         ensure_seeded(here);
+
+        if self.use_llm and os.getenv("DEMO_MODE", "0") == "1" {
+            load_demo_llm();
+        }
 
         existing = [here -->[?:Investor, name == self.name]];
         if existing {

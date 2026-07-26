@@ -1,0 +1,37 @@
+{
+  "_note": "Real by llm() outputs captured live against claude-sonnet-5 for the Priya demo profile (climate, $10,000, San Francisco Bay Area, standard exclusions=[protest]). Consumed by MockLLM in this exact list order when DEMO_MODE=1 - order matches MatchFinder's actual visit order (hop 1 CauseHub(climate) <--TaggedAs-- traversal), NOT final ranked order. A fresh MockLLM is loaded from this file at the start of every find_matches request under DEMO_MODE, so it never runs out across repeated demo clicks. Validated for Priya's exact profile only - a different cause/profile combination changes the candidate set and this fixture will not line up 1:1, though the walker's existing try/except still prevents a crash (falls back to the deterministic score for any candidate past a mismatch).",
+  "captured_for_profile": "Priya (climate, $10000, San Francisco Bay Area)",
+  "captured_model": "claude-sonnet-5",
+  "llm_outputs": [
+    {
+      "score": 45,
+      "rationale": "You said you want measurable outcomes over awareness campaigns, and this org's metric of \"acres of threatened habitat placed under permanent legal protection per dollar granted\" is a concrete, quantifiable outcome rather than a messaging effort, though it tracks land protection, not carbon reduction directly.",
+      "concern": "The mission and metric are framed entirely around acres protected, with no mention of carbon reduction as the unit of measurement, so this may not directly satisfy your stated priority on measurable carbon outcomes; also, at $10,000 against an $80,000,000 annual budget (1 basis point), your gift is unlikely to feel like the kind of small-dollar leverage point you're seeking."
+    },
+    {
+      "score": 78,
+      "rationale": "You said you care about measurable carbon reduction over awareness campaigns, and this org tracks exactly that via \"tons of CO2-equivalent abated through enacted policy and regulatory change,\" while focusing on unglamorous, neglected levers like methane regulation and superhot rock geothermal rather than brand-name climate advocacy.",
+      "concern": "At $10,000 against a $40,000,000 annual budget (2 basis points), your gift is a rounding error, so while the mechanism fits your preference for policy-driven, measurable impact over awareness campaigns, the marginal influence of your specific dollars on any single regulatory win is hard to trace."
+    },
+    {
+      "score": 72,
+      "rationale": "You said you want measurable carbon reduction over awareness campaigns, and this org tracks \"federal carbon removal appropriations influenced per program dollar\" while advising lawmakers on procurement, soil carbon, and direct air capture programs\u2014an unglamorous policy mechanism rather than a brand-name campaign.",
+      "concern": "The impact metric measures policy influence and appropriations leveraged, not tons of carbon actually removed, so it's a step removed from the direct, measurable carbon reduction you said you prioritize, and your $10,000 gift is only 16 basis points of a $6M budget, making your personal leverage on any single legislative outcome hard to isolate."
+    },
+    {
+      "score": 92,
+      "rationale": "You said you want measurable carbon reduction over awareness campaigns, and this org directly measures its work in \"Tons of CO2-equivalent destroyed and independently verified\" by locating and permanently destroying abandoned refrigerant stockpiles - the exact kind of unglamorous operational fix you're looking for.",
+      "concern": "At 6 basis points of the org's $15,000,000 annual budget, your $10,000 gift is a small slice of a modest-but-not-tiny operation, so while the mechanism fits your values, the marginal influence of this specific gift on any single stockpile destruction operation may be limited."
+    },
+    {
+      "score": 55,
+      "rationale": "You said you want an unglamorous operational fix rather than a brand name, and this nonprofit does exactly that by covering \"transport and labor costs that block the donation\" of surplus produce, measuring itself in \"Pounds of surplus produce rescued per logistics dollar.\"",
+      "concern": "The mission is about rescuing food from landfill and feeding food banks, not about measurable carbon reduction, so while there's likely a carbon co-benefit from diverted landfill waste, the organization doesn't track or report emissions data, making it a weaker fit for your stated priority on measurable carbon outcomes."
+    },
+    {
+      "score": 88,
+      "rationale": "You said you want measurable carbon reduction over awareness campaigns, and this org tracks exactly that with \"meals delivered and emissions avoided\" per pickup route, an unglamorous logistics fix rather than a brand-name cause.",
+      "concern": "The mission is primarily food rescue with emissions avoidance as a secondary tracked metric, so carbon reduction is a co-benefit of meal logistics rather than the org's central purpose, and your $10,000 gift would be just 33 basis points of its $3M budget, likely funding a marginal expansion of routes rather than a distinct new program."
+    }
+  ]
+}
