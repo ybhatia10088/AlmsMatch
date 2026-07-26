@@ -86,6 +86,7 @@ Then open `web/index.html` directly in a browser (`file://` works — CORS is pe
 - **`sem` strings, not docstrings.** Every byLLM field is described in prose the model actually reads at call time ([ai.jac:20-34](ai.jac#L20-L34)) — this is why rationales quote specific mission text ("meals rescued and methane emissions avoided per pickup route") instead of generic praise.
 - **The deterministic score runs first, always.** `by llm()` only fires on candidates that already cleared a cheap Jac-arithmetic floor ([walkers.jac:287](walkers.jac#L287)) — real cost control, not a stylistic choice, and it's why Rainforest Trust (an $80M org) gets demoted out of Priya's top 5 once the model reads what her $10K actually buys there.
 - **`skip` vs. `disengage`.** `MatchFinder` uses `skip` — a rejected candidate doesn't stop the rest of the walk. `PledgeCommitter` uses `disengage` — it's a find-first-match walker, so it reports the receipt the instant it finds the target, then stops, deliberately skipping the exit-ability convention that governs `MatchFinder`.
+- **EINs are schema-present, not populated.** `Nonprofit.ein` ([nodes.jac:21](nodes.jac#L21)) exists for a production version to fill from IRS data. Every seed record ships with a real name and real mission text, but a blank EIN — we chose not to hand-copy 21 tax IDs against a one-day deadline rather than risk attaching a wrong or stale one to a real org's name.
 
 ## Tracks
 
