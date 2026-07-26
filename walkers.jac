@@ -4,10 +4,15 @@
 # MatchFinder is a two-hop walk that spawns on an Investor node:
 #   hop 0  Investor --CaresAbout-->  CauseHub
 #   hop 1  CauseHub <--TaggedAs--    Nonprofit
-# and scores each Nonprofit it lands on. Phase 3 swaps the deterministic
-# `score_candidate` for a byLLM ability at exactly one call site.
+# and scores each Nonprofit it lands on.
+#
+# Scoring is two-stage, and the staging is the point. Cheap deterministic Jac math
+# runs at every candidate node; the expensive `by llm()` reasoning runs only on the
+# ones that math says are worth reasoning about. Both stages live inside the walker
+# ability - the ranking decision never leaves the graph walk.
 
 import from nodes { Investor, Nonprofit, CauseHub, CaresAbout, TaggedAs }
+import from ai { score_fit, FitAssessment }
 
 
 # Geography is a containment ladder, not a set of unrelated strings. An org that
@@ -24,6 +29,20 @@ glob MAX_CAUSE: int = 40;
 glob MAX_LEVERAGE: int = 35;
 glob MAX_GEO: int = 25;
 
+# The two scorers answer different questions and they disagree on purpose.
+# The deterministic score knows the numbers - budget leverage, geographic reach,
+# how strongly she weights this cause. The LLM score knows the prose - whether the
+# mission text actually describes what she said she wanted funded. Neither alone
+# ranks well: math alone loves any small local org, and the model alone loves any
+# well-written mission. 60/40 lets the reading lead while the arithmetic anchors it.
+glob LLM_WEIGHT: int = 60;
+glob DET_WEIGHT: int = 40;
+
+
+def blend(llm_score: int, det_score: int) -> int {
+    return (LLM_WEIGHT * llm_score + DET_WEIGHT * det_score) // 100;
+}
+
 
 obj MatchResult {
     has name: str;
@@ -31,13 +50,21 @@ obj MatchResult {
     has impact_metric: str;
     has geography: str;
     has annual_budget: int;
+    # `score` is what the ranking sorts on: the blend when the LLM ran, the
+    # deterministic score when it did not. `base_score` and `llm_score` are kept
+    # separately so the UI can show the judges both halves of the disagreement.
     has score: int = 0;
+    has base_score: int = 0;
+    has llm_score: int = 0;
+    has reasoned: bool = False;
+    has rationale: str = "";
+    has concern: str = "";
     has cause_points: int = 0;
     has leverage_points: int = 0;
     has geo_points: int = 0;
     has gift_bps: int = 0;
     # Human-readable "why", one line per scoring component. Doubles as the
-    # grounding context handed to the LLM in Phase 3.
+    # grounding context handed to the LLM.
     has signals: list[str] = [];
 }
 
@@ -155,6 +182,20 @@ walker MatchFinder {
     has cause_weight: dict[str, int] = {};
 
     has top_n: int = 5;
+
+    # LLM controls. `use_llm=False` is the Phase 2 fallback demo - the whole
+    # traversal and ranking still runs, just without the reasoning layer. The
+    # annex tests run this way so `jac test` never touches the network.
+    has use_llm: bool = True;
+    # Deterministic floor: a candidate this far off on the numbers does not earn
+    # an API call. This is the "cheap filter before expensive work" gate, and it
+    # is plain Jac arithmetic deciding it.
+    has llm_floor: int = 40;
+    # Hard ceiling on calls per run, so an unexpectedly large graph can never
+    # turn a 4-minute demo into a 2-minute wait.
+    has llm_budget: int = 8;
+    has llm_calls: int = 0;
+
     has seen: list[str] = [];
     has considered: int = 0;
     has rejected: list[str] = [];
@@ -217,13 +258,16 @@ walker MatchFinder {
         lp = leverage_points(bps);
         gp = geo_points(self.geography, here.geography);
 
+        base = cp + lp + gp;
+
         result = MatchResult(
             name=here.name,
             mission=here.mission,
             impact_metric=here.impact_metric,
             geography=here.geography,
             annual_budget=here.annual_budget,
-            score=cp + lp + gp,
+            score=base,
+            base_score=base,
             cause_points=cp,
             leverage_points=lp,
             geo_points=gp,
@@ -234,8 +278,46 @@ walker MatchFinder {
                 f"geography {gp}/{MAX_GEO} - operates {here.geography}, she is in {self.geography}"
             ]
         );
+
+        # Stage two, at the node, on survivors only. `score_fit` has no body in
+        # ai.jac - `by llm()` is the implementation and FitAssessment is the
+        # schema the reply is validated against, so what comes back here is
+        # already a well-typed object, never a string to be parsed.
+        if self.use_llm and base >= self.llm_floor and self.llm_calls < self.llm_budget {
+            note = f"A ${self.gift} gift is {bps} basis points of this org's ${here.annual_budget} annual budget.";
+            try {
+                fit = score_fit(
+                    values_statement=self.values_statement,
+                    exclusions=self.exclusions,
+                    mission=here.mission,
+                    impact_metric=here.impact_metric,
+                    leverage_note=note
+                );
+                self.llm_calls += 1;
+                result.llm_score = fit.score;
+                result.rationale = fit.rationale;
+                result.concern = fit.concern;
+                result.reasoned = True;
+                result.score = blend(fit.score, base);
+                self.trace.append(
+                    f"       * {here.name}: by llm() {fit.score}/100  blended {DET_WEIGHT}% x {base} + {LLM_WEIGHT}% x {fit.score} = {result.score}/100"
+                );
+            } except Exception as e {
+                # A demo must survive dead wifi. Losing the reasoning layer costs
+                # us the rationale, not the ranking - the deterministic score
+                # already in `result.score` stands and the walk carries on.
+                result.signals.append(f"llm unavailable ({type(e).__name__}), deterministic score only");
+                self.trace.append(f"       ! {here.name}: llm call failed ({type(e).__name__}), kept {base}/100");
+            }
+        } elif self.use_llm and base < self.llm_floor {
+            self.trace.append(
+                f"       - {here.name}: {base}/100 below llm floor {self.llm_floor}, no call made"
+            );
+        } else {
+            self.trace.append(f"       + {here.name}: scored {base}/100");
+        }
+
         self.scored.append(result);
-        self.trace.append(f"       + {here.name}: scored {result.score}/100");
     }
 
     # Exit abilities run post-order, so the spawn origin's exit fires last -
@@ -247,7 +329,8 @@ walker MatchFinder {
             reverse=True
         );
         self.trace.append(
-            f"done   {self.considered} considered, {len(self.rejected)} excluded, top {self.top_n} returned"
+            f"done   {self.considered} considered, {len(self.rejected)} excluded, "
+            + f"{self.llm_calls} reasoned by llm(), top {self.top_n} returned"
         );
         report MatchReport(
             investor=self.investor_name,

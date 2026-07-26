@@ -1,8 +1,11 @@
-# AlmsMatch - entry point, graph bootstrap, and graph inspection.
-# Phase 1: schema + seed data. The matching walker lands in walkers.jac (Phase 2).
+# AlmsMatch - entry point, graph bootstrap, and the live match run.
+# Schema lives in nodes.jac, the matching engine in walkers.jac, the reasoning
+# layer in ai.jac.
 
 import json;
 import io;
+import os;
+import time;
 import from contextlib { redirect_stdout }
 import from nodes { Investor, Nonprofit, CauseHub, Region, TaggedAs, CaresAbout, OperatesIn }
 import from walkers { MatchFinder, MatchReport, MatchResult }
@@ -169,8 +172,17 @@ def show_matches(rpt: MatchReport) {
     rank = 1;
     for m in rpt.matches {
         print(f"{rank}. {m.name}  [{m.score}/100]  {m.geography}");
+        if m.reasoned {
+            print(f"      graph {m.base_score}/100 + by llm() {m.llm_score}/100 -> blended {m.score}/100");
+        }
         for s in m.signals {
             print(f"      {s}");
+        }
+        if m.rationale {
+            print(f"      why      {m.rationale}");
+        }
+        if m.concern {
+            print(f"      concern  {m.concern}");
         }
         rank += 1;
     }
@@ -205,13 +217,21 @@ with entry:__main__ {
     # Select her by name, not "every Investor under root" - `jac test` leaves its
     # own fixture investors attached to the same persisted root, and the demo
     # must show one person's matches, not whatever the last test run left behind.
+    # USE_LLM=0 drops to the deterministic-only walk: same traversal, same
+    # ranking math, no network. That is the fallback demo if the wifi dies.
+    reasoning = os.getenv("USE_LLM", "1") != "0";
+
     for inv in [root -->[?:Investor, name == "Priya"]] {
         sink = io.StringIO();
+        t0 = time.time();
         with redirect_stdout(sink) {
-            found = inv spawn MatchFinder(top_n=5);
+            found = inv spawn MatchFinder(top_n=5, use_llm=reasoning);
         }
+        elapsed = time.time() - t0;
         if found.reports {
             show_matches(found.reports[0]);
+            print("");
+            print(f"match run: {elapsed:.1f}s  ({found.llm_calls} llm calls)");
         }
     }
 }

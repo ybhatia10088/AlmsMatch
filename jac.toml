@@ -21,7 +21,17 @@ demo = "jac run main.jac"
 # uses, so this cleans on both sides - never hand the demo a graph full of TEST_*.
 test = "jac clean --data --cache --force && jac test walkers.jac -v && jac clean --data --cache --force"
 
-# byLLM model config lands here in Phase 3. Env vars take precedence over this file,
-# so ANTHROPIC_API_KEY / OPENAI_API_KEY in .env override default_model's provider.
+# Anthropic model names are BARE (no "anthropic/" prefix) - verified against
+# jac-by-llm.md and confirmed on the wire: litellm resolves any claude-* name it
+# knows to provider=anthropic on its own. Prefixing works too but is unnecessary.
+#
+# The bare form only routes for names in litellm's model map - an unknown bare name
+# dies with "LLM Provider NOT provided", NOT with a model-not-found. If a name ever
+# has to be one litellm doesn't know, prefix it "anthropic/..." and it always routes.
+#
+# ${VAR:-default} interpolation is a documented jac.toml feature, so LLM_MODEL=... in
+# the environment swaps the model with no file edit - that's the escape hatch if the
+# demo runs long and we need to drop to claude-haiku-4-5.
+# The key itself never lands here: ANTHROPIC_API_KEY stays in the gitignored .env.
 [plugins.byllm.model]
-default_model = "${LLM_MODEL:-gpt-4o-mini}"
+default_model = "${LLM_MODEL:-claude-sonnet-5}"
