@@ -64,6 +64,11 @@ obj MatchResult {
     has leverage_points: int = 0;
     has geo_points: int = 0;
     has gift_bps: int = 0;
+    # 501(c)(3) tax-exempt status, carried through so the UI can badge each card.
+    # Revoked orgs never reach here - they are gated out before scoring.
+    has ein: str = "";
+    has verification_status: str = "unverified";
+    has last_990_filing_year: int = 0;
     # Human-readable "why", one line per scoring component. Doubles as the
     # grounding context handed to the LLM.
     has signals: list[str] = [];
@@ -254,6 +259,22 @@ walker MatchFinder {
             skip;
         }
 
+        # 501(c)(3) gate. An organization whose tax-exempt status has been revoked
+        # cannot offer the donor a deductible gift, so no amount of mission fit
+        # rescues it - it leaves the ranked list entirely. `skip`, not `disengage`:
+        # this walker is ranking every candidate, so one bad org must not end the
+        # walk. Runs before the llm_floor check, so a revoked org never costs an
+        # API call either.
+        if here.verification_status == "revoked" {
+            self.rejected.append(
+                f"{here.name} (501(c)(3) status revoked - gifts not tax-deductible)"
+            );
+            self.trace.append(
+                f"       x {here.name}: EXCLUDED, 501(c)(3) status revoked, skipped"
+            );
+            skip;
+        }
+
         cp = cause_points(here.cause_tags, self.cause_weight);
         bps = gift_bps(here.annual_budget, self.gift);
         lp = leverage_points(bps);
@@ -273,6 +294,9 @@ walker MatchFinder {
             leverage_points=lp,
             geo_points=gp,
             gift_bps=bps,
+            ein=here.ein,
+            verification_status=here.verification_status,
+            last_990_filing_year=here.last_990_filing_year,
             signals=[
                 f"cause fit {cp}/{MAX_CAUSE} - tagged {here.cause_tags}, she funds {list(self.cause_weight.keys())}",
                 f"leverage {lp}/{MAX_LEVERAGE} - a ${self.gift} gift is {bps} basis points of a ${here.annual_budget} budget",

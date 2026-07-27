@@ -378,3 +378,87 @@ test "PledgeCommitter reports nothing when the name never matches" {
     assert len(walked.reports) == 0;
     assert len([inv ->:PledgedTo:->]) == 0;
 }
+
+test "a revoked 501(c)(3) is gated out before scoring, and the walk continues" {
+    inv = Investor(
+        name="TEST_revoked",
+        cause_areas=["climate"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area"
+    );
+    root ++> inv;
+
+    hub = CauseHub(tag="climate");
+    inv +>:CaresAbout(weight=3):+> hub;
+
+    # Identical on every scoring dimension - the ONLY difference is tax-exempt
+    # status, so anything but the gate would rank them the same.
+    revoked = Nonprofit(
+        name="TEST_revoked_org",
+        mission="Reduces emissions.",
+        cause_tags=["climate"],
+        geography="San Francisco Bay Area",
+        annual_budget=3000000,
+        verification_status="revoked"
+    );
+    keeper = Nonprofit(
+        name="TEST_verified_org",
+        mission="Reduces emissions.",
+        cause_tags=["climate"],
+        geography="San Francisco Bay Area",
+        annual_budget=3000000,
+        verification_status="verified",
+        last_990_filing_year=2023
+    );
+    root ++> revoked;
+    root ++> keeper;
+    revoked +>:TaggedAs:+> hub;
+    keeper +>:TaggedAs:+> hub;
+
+    rpt = (inv spawn MatchFinder(use_llm=False)).reports[0];
+
+    # Gated out of the ranking entirely, not merely down-ranked.
+    assert len(rpt.matches) == 1;
+    assert rpt.matches[0].name == "TEST_verified_org";
+    assert len([r for r in rpt.rejected if "TEST_revoked_org" in r]) == 1;
+    assert "revoked" in " ".join(rpt.rejected);
+    # `skip` not `disengage`: both were considered, the survivor still scored.
+    assert rpt.considered == 2;
+    assert "501(c)(3) status revoked" in " ".join(rpt.trace);
+    # Verification detail rides through to the card.
+    assert rpt.matches[0].verification_status == "verified";
+    assert rpt.matches[0].last_990_filing_year == 2023;
+}
+
+test "an unverified org still ranks - unverified is not an accusation" {
+    inv = Investor(
+        name="TEST_unverified",
+        cause_areas=["climate"],
+        annual_budget=10000,
+        geography="San Francisco Bay Area"
+    );
+    root ++> inv;
+
+    hub = CauseHub(tag="climate");
+    inv +>:CaresAbout(weight=3):+> hub;
+
+    org = Nonprofit(
+        name="TEST_unverified_org",
+        mission="Reduces emissions.",
+        cause_tags=["climate"],
+        geography="San Francisco Bay Area",
+        annual_budget=3000000,
+        verification_status="unverified"
+    );
+    root ++> org;
+    org +>:TaggedAs:+> hub;
+
+    rpt = (inv spawn MatchFinder(use_llm=False)).reports[0];
+
+    # Only "revoked" gates. Unverified orgs (e.g. for-profit public benefit
+    # corps, or ones we simply could not resolve) still rank normally.
+    assert len(rpt.matches) == 1;
+    assert rpt.matches[0].name == "TEST_unverified_org";
+    assert rpt.matches[0].score == 95;
+    assert rpt.rejected == [];
+}

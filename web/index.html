@@ -84,6 +84,25 @@
     font-family: "SF Mono", Menlo, monospace; font-size: 0.78rem;
     color: var(--muted); margin-bottom: 8px;
   }
+  .verify { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+  .vbadge {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
+    border-radius: 20px; padding: 2px 9px; white-space: nowrap;
+  }
+  .vbadge-ok { background: #e3f3ec; color: #145c45; }
+  .vbadge-unknown { background: #eeefee; color: #6b756f; }
+  .vdetail { font-size: 0.78rem; color: var(--muted); }
+
+  .rejected-title {
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted); margin: 22px 0 8px;
+  }
+  .rejected-row {
+    font-size: 0.85rem; color: var(--muted); padding: 7px 12px;
+    border-left: 3px solid #d8dcd9; background: #f3f4f3;
+    border-radius: 0 5px 5px 0; margin-bottom: 6px;
+  }
+
   .why, .concern { font-size: 0.9rem; margin: 6px 0; }
   .why b, .concern b { color: var(--accent-dark); }
   .signals { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.82rem; }
@@ -163,6 +182,7 @@
     </div>
     <div class="summary-line" id="results-summary"></div>
     <div id="results-cards"></div>
+    <div id="results-rejected" style="display:none"></div>
     <div class="actions">
       <button class="btn-ghost" id="btn-back-profile" type="button">&larr; back to profile</button>
     </div>
@@ -294,10 +314,44 @@ document.getElementById("btn-find").addEventListener("click", async () => {
   }
 });
 
+// 501(c)(3) status, straight from the graph node. Deliberately worded as
+// tax-exempt status / deductibility - never as whether a gift is "legal" or
+// "valid", which would overclaim what the IRS data actually says.
+function verificationBadge(m) {
+  if (m.verification_status === "verified") {
+    const yr = m.last_990_filing_year
+      ? ` &middot; last Form 990 filed ${m.last_990_filing_year}`
+      : "";
+    const ein = m.ein ? ` &middot; EIN ${escapeHtml(formatEin(m.ein))}` : "";
+    return `<div class="verify verify-ok"><span class="vbadge vbadge-ok">&#10003; 501(c)(3) verified</span>` +
+           `<span class="vdetail">gifts are tax-deductible${yr}${ein}</span></div>`;
+  }
+  return `<div class="verify verify-unknown"><span class="vbadge vbadge-unknown">501(c)(3) unverified</span>` +
+         `<span class="vdetail">tax-exempt status not confirmed &mdash; not an accusation, just unconfirmed</span></div>`;
+}
+
+function formatEin(ein) {
+  return /^\d{9}$/.test(ein) ? `${ein.slice(0, 2)}-${ein.slice(2)}` : ein;
+}
+
 function renderResults(report) {
   document.getElementById("trace-lines").textContent = report.trace.join("\n");
   document.getElementById("results-summary").textContent =
     `${report.considered} nonprofits considered, ${report.rejected.length} excluded, top ${report.matches.length} shown.`;
+
+  // The excluded list is the visible proof the deterministic gates ran. It is
+  // where the revoked-status exclusion shows up on stage - the ranked cards
+  // above can never show it, because a revoked org is gated out before scoring.
+  const rejWrap = document.getElementById("results-rejected");
+  if (report.rejected.length) {
+    rejWrap.innerHTML =
+      `<div class="rejected-title">Filtered out before scoring</div>` +
+      report.rejected.map(r => `<div class="rejected-row">${escapeHtml(r)}</div>`).join("");
+    rejWrap.style.display = "";
+  } else {
+    rejWrap.innerHTML = "";
+    rejWrap.style.display = "none";
+  }
 
   const container = document.getElementById("results-cards");
   container.innerHTML = "";
@@ -312,6 +366,7 @@ function renderResults(report) {
     const why = m.rationale ? `<div class="why"><b>Why:</b> ${escapeHtml(m.rationale)}</div>` : "";
     const concern = m.concern ? `<div class="concern"><b>Concern:</b> ${escapeHtml(m.concern)}</div>` : "";
     const signals = m.signals.map(s => `<li>${escapeHtml(s)}</li>`).join("");
+    const verifyHtml = verificationBadge(m);
 
     card.innerHTML = `
       <div class="card-head">
@@ -319,6 +374,7 @@ function renderResults(report) {
         <span class="score-badge">${m.score}/100</span>
       </div>
       <div class="meta">${escapeHtml(m.geography)} &middot; $${m.annual_budget.toLocaleString()} annual budget</div>
+      ${verifyHtml}
       ${blendHtml}
       ${why}
       ${concern}

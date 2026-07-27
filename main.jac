@@ -18,6 +18,16 @@ def load_seed(path: str) -> dict[str, any] {
 }
 
 
+# Cached IRS Business Master File verification, fetched once via the ProPublica
+# Nonprofit Explorer API. Read from disk, never from the network - see A3/DEMO_MODE
+# reasoning: no third-party call is allowed to run during the demo.
+def load_verification(path: str = "fixtures/irs_verification.json") -> dict[str, any] {
+    with open(path) as fh {
+        return json.load(fh) as dict[str, any];
+    }
+}
+
+
 # Priya - the one named user the whole product is built around. Seeded into the
 # graph so the demo never depends on typing a profile on stage.
 def priya() -> Investor {
@@ -45,6 +55,12 @@ def ensure_seeded(here: Root, data_path: str = "seed_data.json") -> dict[str, in
     }
 
     payload = load_seed(data_path);
+    # Cached IRS verification, fetched once (see fixtures/irs_verification.json).
+    # Nothing here calls ProPublica at run time - a cold network at 7:15pm must not
+    # be able to change what the demo shows.
+    verification = load_verification();
+    ver_orgs = verification["organizations"] as dict[str, any];
+    ver_stamp = verification["fetched_at"] as str;
 
     hub_by_tag: dict[str, CauseHub] = {};
     hubs_created = 0;
@@ -69,6 +85,21 @@ def ensure_seeded(here: Root, data_path: str = "seed_data.json") -> dict[str, in
         org_tags = rec["cause_tags"] as list[str];
         geo = rec["geography"] as str;
 
+        # The synthetic fixture carries its (fictional) status inline; real orgs get
+        # theirs only from the cached IRS data. Keeping those two sources separate is
+        # deliberate - it makes it structurally impossible for the made-up "revoked"
+        # record to leak into the file of real IRS facts.
+        if rec.get("synthetic") == True {
+            vstatus = rec["verification_status"] as str;
+            vyear = rec["last_990_filing_year"] as int;
+            vsource = "synthetic test fixture - not IRS data";
+        } else {
+            vrec = ver_orgs.get(rec["name"] as str);
+            vstatus = (vrec["verification_status"] as str) if vrec else "unverified";
+            vyear = (vrec["last_990_filing_year"] as int) if vrec else 0;
+            vsource = ver_stamp;
+        }
+
         org = Nonprofit(
             name=rec["name"] as str,
             mission=rec["mission"] as str,
@@ -76,7 +107,11 @@ def ensure_seeded(here: Root, data_path: str = "seed_data.json") -> dict[str, in
             geography=geo,
             annual_budget=rec["annual_budget"] as int,
             impact_metric=rec["impact_metric"] as str,
-            ein=rec["ein"] as str
+            ein=rec["ein"] as str,
+            verification_status=vstatus,
+            last_990_filing_year=vyear,
+            verification_source=vsource,
+            synthetic=rec.get("synthetic") == True
         );
         here ++> org;
         orgs_created += 1;

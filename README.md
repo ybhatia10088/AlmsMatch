@@ -14,12 +14,13 @@ Judges: this is criterion 01. Every link below is real code, not a pointer to "s
 
 | What | File : line |
 |---|---|
-| **The two-hop graph walk** — `Investor --CaresAbout--> CauseHub --TaggedAs--> Nonprofit` | [walkers.jac:207-237](walkers.jac#L207-L237) |
-| Deterministic prefilter (exclusions, cause/geography/leverage scoring) — plain Jac, runs on every candidate before any LLM call | [walkers.jac:239-278](walkers.jac#L239-L278) |
-| **The `by llm()` call** — cheap Jac math already ran; this only fires on survivors | [walkers.jac:290-296](walkers.jac#L290-L296) |
-| 60/40 blend of the LLM's read against the graph's arithmetic — the ranking decision itself | [walkers.jac:302](walkers.jac#L302), formula at [walkers.jac:43-44](walkers.jac#L43-L44) |
-| Single accumulate-then-report at exit (not scattered per-match reports) | [walkers.jac:326-342](walkers.jac#L326-L342) |
-| **`PledgeCommitter`** — find-first-match walker, same two-hop traversal, writes the pledge back into the graph as a first-class node and reports immediately before `disengage` | [walkers.jac:363-397](walkers.jac#L363-L397) |
+| **The two-hop graph walk** — `Investor --CaresAbout--> CauseHub --TaggedAs--> Nonprofit` | [walkers.jac:213-243](walkers.jac#L213-L243) |
+| Deterministic prefilter (exclusions, cause/geography/leverage scoring) — plain Jac, runs on every candidate before any LLM call | [walkers.jac:245-303](walkers.jac#L245-L303) |
+| **501(c)(3) verification gate** — a revoked org leaves the ranked list before it can cost an LLM call; `skip`, not `disengage`, so the walk continues | [walkers.jac:262-276](walkers.jac#L262-L276) |
+| **The `by llm()` call** — cheap Jac math already ran; this only fires on survivors | [walkers.jac:314-320](walkers.jac#L314-L320) |
+| 60/40 blend of the LLM's read against the graph's arithmetic — the ranking decision itself | [walkers.jac:326](walkers.jac#L326), formula at [walkers.jac:43-44](walkers.jac#L43-L44) |
+| Single accumulate-then-report at exit (not scattered per-match reports) | [walkers.jac:350-367](walkers.jac#L350-L367) |
+| **`PledgeCommitter`** — find-first-match walker, same two-hop traversal, writes the pledge back into the graph as a first-class node and reports immediately before `disengage` | [walkers.jac:387-430](walkers.jac#L387-L430) |
 | **`FitAssessment`** — the typed `obj` byLLM validates the model's reply against; the Jac type system *is* the output schema | [ai.jac:11-15](ai.jac#L11-L15) |
 | `score_fit` — no function body; `by llm()` is the implementation | [ai.jac:36-42](ai.jac#L36-L42) |
 | `sem` strings grounding every field in the donor's actual words and the nonprofit's actual mission text, never general knowledge | [ai.jac:20-34](ai.jac#L20-L34), [ai.jac:51-63](ai.jac#L51-L63) |
@@ -27,7 +28,7 @@ Judges: this is criterion 01. Every link below is real code, not a pointer to "s
 
 **The one sentence that matters for this criterion:** the matching decision — deterministic scoring, LLM reasoning, and the blend between them — happens entirely inside `MatchFinder`'s walker abilities as it physically traverses the graph. Nothing about *which nonprofit wins* lives in Python, in the frontend, or in a raw API call. Delete `walkers.jac` and there is no product left.
 
-**Jac ratio: 66.8%** of the codebase (1,320 Jac lines / 1,977 code+config lines, `CLAUDE.md` excluded; 57.8% if you count it). Hand-counted — `wc -l *.jac` vs. every other tracked file.
+**Jac ratio: 56.4%** of the codebase — 1,484 Jac lines vs. 1,149 non-Jac (`CLAUDE.md` excluded; 50.5% if you count it). Hand-counted with `wc -l`. Note that most of the non-Jac total is *data, not code*: 523 lines of it is JSON fixtures and seed records (`seed_data.json`, `fixtures/`). Excluding data files, the logic in this project is ~76% Jac — the only real non-Jac source is the 434-line single-file frontend.
 
 ---
 
@@ -53,14 +54,14 @@ Nonprofit  ──┬── deterministic score  (cause fit + budget leverage + g
 ```
 almsmatch/
   nodes.jac          # Investor, Nonprofit, CauseHub, Region, Pledge + typed edges
-  seed_data.json      # 21 real nonprofits: climate, education, housing, health, food security
+  seed_data.json      # 21 real nonprofits + 1 clearly-labeled synthetic test record
+  fixtures/           # cached by llm() outputs AND cached IRS verification data
   walkers.jac         # MatchFinder (the traversal + ranking) and PledgeCommitter
   ai.jac              # FitAssessment schema, score_fit by llm(), sem grounding strings
   main.jac            # CLI entry: graph bootstrap, Seeder, GraphStats, the live match run
   api.jac             # jac start REST surface: find_matches, commit_pledge, demo_profile
-  fixtures/           # cached real by llm() outputs — DEMO_MODE=1 fallback if wifi dies
   web/index.html       # single-page form → ranked results + traversal trace → pledge
-  walkers.test.jac    # 13 tests, all offline (MockLLM, no API key needed)
+  walkers.test.jac    # 15 tests, all offline (MockLLM, no API key needed)
 ```
 
 The traversal is genuinely two-hop — `Investor -> CauseHub -> Nonprofit` — not a flat scan with an extra table in the middle. `CauseHub` exists purely to make that true.
@@ -73,7 +74,7 @@ pip install jaseci byllm
 echo "ANTHROPIC_API_KEY=sk-..." > .env   # gitignored, never committed
 
 jac script reset      # seed the graph fresh, print structure + a live match run
-jac script test       # 13 tests, fully offline, no key required
+jac script test       # 15 tests, fully offline, no key required
 jac script serve       # jac start api.jac --no_client --port 8123
 ```
 
@@ -84,9 +85,24 @@ Then open `web/index.html` directly in a browser (`file://` works — CORS is pe
 ## Design decisions worth knowing about
 
 - **`sem` strings, not docstrings.** Every byLLM field is described in prose the model actually reads at call time ([ai.jac:20-34](ai.jac#L20-L34)) — this is why rationales quote specific mission text ("meals rescued and methane emissions avoided per pickup route") instead of generic praise.
-- **The deterministic score runs first, always.** `by llm()` only fires on candidates that already cleared a cheap Jac-arithmetic floor ([walkers.jac:287](walkers.jac#L287)) — real cost control, not a stylistic choice, and it's why Rainforest Trust (an $80M org) gets demoted out of Priya's top 5 once the model reads what her $10K actually buys there.
+- **The deterministic score runs first, always.** `by llm()` only fires on candidates that already cleared a cheap Jac-arithmetic floor ([walkers.jac:311](walkers.jac#L311)) — real cost control, not a stylistic choice, and it's why Rainforest Trust (an $80M org) gets demoted out of Priya's top 5 once the model reads what her $10K actually buys there.
 - **`skip` vs. `disengage`.** `MatchFinder` uses `skip` — a rejected candidate doesn't stop the rest of the walk. `PledgeCommitter` uses `disengage` — it's a find-first-match walker, so it reports the receipt the instant it finds the target, then stops, deliberately skipping the exit-ability convention that governs `MatchFinder`.
-- **EINs are schema-present, not populated.** `Nonprofit.ein` ([nodes.jac:21](nodes.jac#L21)) exists for a production version to fill from IRS data. Every seed record ships with a real name and real mission text, but a blank EIN — we chose not to hand-copy 21 tax IDs against a one-day deadline rather than risk attaching a wrong or stale one to a real org's name.
+- **The verification gate is deliberately not an LLM question.** Whether an org's 501(c)(3) status is currently in force is live registry data — a language model cannot answer it from training data, and would be confidently wrong if asked. So it's a graph field populated from the IRS Business Master File and a plain `if` in the walker ([walkers.jac:268](walkers.jac#L268)). It also runs *before* the LLM floor, so a revoked org never costs an API call.
+
+## 501(c)(3) verification
+
+Tax-exempt status can be revoked by operation of law after three consecutive years of unfiled Form 990s. Once that happens, gifts to the organization are no longer tax-deductible — and a donor has no easy way to check before giving.
+
+EINs and tax-exempt status for all 21 real orgs were resolved from the **[ProPublica Nonprofit Explorer API](https://projects.propublica.org/nonprofits/api/)** (free, no key), matched on name + city, and cached once into [fixtures/irs_verification.json](fixtures/irs_verification.json). **The demo never makes a live third-party call** — same reasoning as `DEMO_MODE`.
+
+- **20 of 21 verified** — present in the current IRS BMF as a 501(c)(3), exemption in force, contributions deductible.
+- **1 unverified: Tradewater.** It operates as a for-profit public benefit corporation, not a tax-exempt charity, so no 501(c)(3) record exists. It still ranks — `unverified` gates nothing. It is *not* an accusation of wrongdoing, and we deliberately did not match it to a similarly-named unrelated charity.
+
+### The one synthetic record — read this
+
+`seed_data.json` contains exactly **one fictional organization**, flagged `"synthetic": true`, named **"SYNTHETIC TEST ORG - Lapsed Climate Coalition (NOT A REAL CHARITY)"**. It carries the only `revoked` status in the dataset and exists solely so the exclusion path is visible during a live demo.
+
+**No real organization in this project is labeled revoked, and none ever will be.** Marking a real named charity as revoked without it actually appearing on the IRS Auto-Revocation List would be a false factual claim about a real institution. Where status could not be confirmed, the org is marked `unverified` — never `revoked`. The synthetic record's status is stored inline in `seed_data.json` and deliberately kept *out* of `fixtures/irs_verification.json`, so fiction cannot leak into the file of real IRS facts.
 
 ## Tracks
 

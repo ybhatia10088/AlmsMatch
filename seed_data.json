@@ -1,196 +1,271 @@
 {
-  "_note": "Organizations are REAL and their work is described accurately, but the mission text is a factual summary written for this project, not a verbatim quote of any org's official mission statement. `annual_budget` is an approximate order-of-magnitude figure used only for budget-fit filtering, not a reported financial. `ein` is intentionally left empty: attaching unverified identifiers to real charities in a public repo would be fabricating records. See README.",
-  "cause_areas": ["climate", "education", "housing", "health", "food_security"],
-  "regions": ["San Francisco Bay Area", "California", "United States", "Global"],
+  "_note": "Organizations are REAL and their work is described accurately, but the mission text is a factual summary written for this project, not a verbatim quote of any org's official mission statement. `annual_budget` is an approximate order-of-magnitude figure used only for budget-fit filtering, not a reported financial. `ein` values ARE real, resolved via the ProPublica Nonprofit Explorer API and matched on name + city; tax-exempt verification detail for each lives in fixtures/irs_verification.json. Exactly one entry in this file is SYNTHETIC and is flagged with \"synthetic\": true - it is the only org carrying a 'revoked' status, and it exists solely to exercise the verification-gate code path in the demo. No real organization here is or ever will be labeled revoked. See README.",
+  "cause_areas": [
+    "climate",
+    "education",
+    "housing",
+    "health",
+    "food_security"
+  ],
+  "regions": [
+    "San Francisco Bay Area",
+    "California",
+    "United States",
+    "Global"
+  ],
   "nonprofits": [
     {
       "name": "Rainforest Trust",
       "mission": "Purchases and permanently protects threatened tropical forest habitat by funding local conservation partners in the countries where the land sits, rather than operating reserves directly.",
-      "cause_tags": ["climate"],
+      "cause_tags": [
+        "climate"
+      ],
       "geography": "Global",
       "annual_budget": 80000000,
       "impact_metric": "Acres of threatened habitat placed under permanent legal protection per dollar granted",
-      "ein": ""
+      "ein": "133500609"
     },
     {
       "name": "Clean Air Task Force",
       "mission": "Pushes for the technology and policy changes needed to decarbonize energy systems, focusing on neglected high-leverage options like superhot rock geothermal, advanced nuclear, and methane regulation.",
-      "cause_tags": ["climate", "health"],
+      "cause_tags": [
+        "climate",
+        "health"
+      ],
       "geography": "Global",
       "annual_budget": 40000000,
       "impact_metric": "Tons of CO2-equivalent abated through enacted policy and regulatory change",
-      "ein": ""
+      "ein": "043512550"
     },
     {
       "name": "Carbon180",
       "mission": "A policy-focused NGO working to build a carbon removal industry in the United States, advising lawmakers on procurement, soil carbon, and direct air capture programs.",
-      "cause_tags": ["climate"],
+      "cause_tags": [
+        "climate"
+      ],
       "geography": "United States",
       "annual_budget": 6000000,
       "impact_metric": "Federal carbon removal appropriations influenced per program dollar",
-      "ein": ""
+      "ein": "812560407"
     },
     {
       "name": "Tradewater",
       "mission": "Locates, collects, and permanently destroys abandoned stockpiles of refrigerants and other potent greenhouse gases that would otherwise leak into the atmosphere.",
-      "cause_tags": ["climate"],
+      "cause_tags": [
+        "climate"
+      ],
       "geography": "Global",
       "annual_budget": 15000000,
       "impact_metric": "Tons of CO2-equivalent destroyed and independently verified",
-      "ein": ""
+      "ein": "",
+      "ein_unresolved_reason": "No 501(c)(3) record found in the IRS Business Master File. Tradewater operates as a for-profit public benefit corporation, not a tax-exempt charity, so a gift to it would not be tax-deductible. Left unverified rather than matched to a similarly-named unrelated org."
     },
     {
       "name": "Climate Emergency Fund",
       "mission": "Funds disruptive climate protest and advocacy movements, backing organizers and civil resistance campaigns that conventional environmental funders will not support.",
-      "cause_tags": ["climate"],
+      "cause_tags": [
+        "climate"
+      ],
       "geography": "Global",
       "annual_budget": 5000000,
       "impact_metric": "Activist campaigns seeded and sustained per grant cycle",
-      "ein": ""
+      "ein": "842151545"
     },
     {
       "name": "DonorsChoose",
       "mission": "Lets public school teachers post specific classroom project needs and have them crowdfunded directly, with materials shipped to the school rather than cash sent to the teacher.",
-      "cause_tags": ["education"],
+      "cause_tags": [
+        "education"
+      ],
       "geography": "United States",
       "annual_budget": 130000000,
       "impact_metric": "Students reached per fully funded classroom project",
-      "ein": ""
+      "ein": "134129457"
     },
     {
       "name": "Khan Academy",
       "mission": "Provides free online lessons, practice exercises, and mastery tracking across math, science, and the humanities, available to anyone with an internet connection.",
-      "cause_tags": ["education"],
+      "cause_tags": [
+        "education"
+      ],
       "geography": "Global",
       "annual_budget": 75000000,
       "impact_metric": "Learners completing mastery-level practice per year",
-      "ein": ""
+      "ein": "261544963"
     },
     {
       "name": "Reading Partners",
       "mission": "Trains community volunteers to deliver structured one-on-one literacy tutoring inside under-resourced elementary schools, targeting students reading below grade level.",
-      "cause_tags": ["education"],
+      "cause_tags": [
+        "education"
+      ],
       "geography": "United States",
       "annual_budget": 25000000,
       "impact_metric": "Students achieving grade-level reading growth per tutoring cycle",
-      "ein": ""
+      "ein": "770568469"
     },
     {
       "name": "826 Valencia",
       "mission": "Runs writing and tutoring centers for under-resourced Bay Area students aged six to eighteen, pairing classroom support with student publishing programs.",
-      "cause_tags": ["education"],
+      "cause_tags": [
+        "education"
+      ],
       "geography": "San Francisco Bay Area",
       "annual_budget": 7000000,
       "impact_metric": "Students receiving sustained one-on-one writing support per school year",
-      "ein": ""
+      "ein": "043694151"
     },
     {
       "name": "Habitat for Humanity",
       "mission": "Builds and repairs affordable homes in partnership with the families who will live in them, who contribute labor hours and buy the home on affordable terms.",
-      "cause_tags": ["housing"],
+      "cause_tags": [
+        "housing"
+      ],
       "geography": "Global",
       "annual_budget": 350000000,
       "impact_metric": "Families housed per construction dollar deployed",
-      "ein": ""
+      "ein": "911914868"
     },
     {
       "name": "Community Housing Partnership",
       "mission": "Develops and operates permanent supportive housing in San Francisco for people leaving homelessness, pairing tenancy with on-site services and resident employment programs.",
-      "cause_tags": ["housing", "health"],
+      "cause_tags": [
+        "housing",
+        "health"
+      ],
       "geography": "San Francisco Bay Area",
       "annual_budget": 40000000,
       "impact_metric": "Formerly homeless tenants retaining housing at twelve months",
-      "ein": ""
+      "ein": "943112338"
     },
     {
       "name": "Miracle Messages",
       "mission": "Reunites people experiencing homelessness with estranged family and friends through volunteer-assisted outreach, and runs a direct cash transfer program for unhoused individuals.",
-      "cause_tags": ["housing"],
+      "cause_tags": [
+        "housing"
+      ],
       "geography": "United States",
       "annual_budget": 4000000,
       "impact_metric": "Family reunifications completed and cash transfers delivered per year",
-      "ein": ""
+      "ein": "824179328"
     },
     {
       "name": "Destination: Home",
       "mission": "A collective-impact organization in Santa Clara County combining homelessness prevention cash assistance, supportive housing finance, and county-wide data coordination.",
-      "cause_tags": ["housing"],
+      "cause_tags": [
+        "housing"
+      ],
       "geography": "San Francisco Bay Area",
       "annual_budget": 50000000,
       "impact_metric": "Households prevented from entering homelessness per prevention dollar",
-      "ein": ""
+      "ein": "823353174"
     },
     {
       "name": "Partners In Health",
       "mission": "Builds long-term public health system capacity in under-resourced countries by staffing and supplying public hospitals and clinics alongside government health ministries.",
-      "cause_tags": ["health"],
+      "cause_tags": [
+        "health"
+      ],
       "geography": "Global",
       "annual_budget": 250000000,
       "impact_metric": "Patient visits delivered through strengthened public facilities",
-      "ein": ""
+      "ein": "043567502"
     },
     {
       "name": "Against Malaria Foundation",
       "mission": "Funds, distributes, and independently verifies the use of long-lasting insecticide-treated bed nets in malaria-endemic regions, publishing distribution data down to the household level.",
-      "cause_tags": ["health"],
+      "cause_tags": [
+        "health"
+      ],
       "geography": "Global",
       "annual_budget": 100000000,
       "impact_metric": "Deaths averted per net distributed and verified in use",
-      "ein": ""
+      "ein": "203069841"
     },
     {
       "name": "Evidence Action",
       "mission": "Scales public health interventions with strong randomized-trial evidence behind them, principally school-based deworming and chlorine dispensers for safe drinking water.",
-      "cause_tags": ["health", "food_security"],
+      "cause_tags": [
+        "health",
+        "food_security"
+      ],
       "geography": "Global",
       "annual_budget": 90000000,
       "impact_metric": "Cost per disability-adjusted life year averted",
-      "ein": ""
+      "ein": "900874591"
     },
     {
       "name": "Muso Health",
       "mission": "Deploys proactive community health workers who search door to door for patients in Mali and Cote d'Ivoire, aiming to shorten the delay between symptom onset and treatment.",
-      "cause_tags": ["health"],
+      "cause_tags": [
+        "health"
+      ],
       "geography": "Global",
       "annual_budget": 12000000,
       "impact_metric": "Reduction in time from symptom onset to care per patient served",
-      "ein": ""
+      "ein": "203171837"
     },
     {
       "name": "HealthRIGHT 360",
       "mission": "Provides integrated primary care, mental health, and substance use treatment to Californians regardless of ability to pay, with a focus on people leaving incarceration or homelessness.",
-      "cause_tags": ["health", "housing"],
+      "cause_tags": [
+        "health",
+        "housing"
+      ],
       "geography": "California",
       "annual_budget": 130000000,
       "impact_metric": "Clients retained in integrated treatment at six months",
-      "ein": ""
+      "ein": "946129071"
     },
     {
       "name": "SF-Marin Food Bank",
       "mission": "Distributes free groceries across San Francisco and Marin counties through neighborhood pantries and home delivery, emphasizing fresh produce over shelf-stable packaged food.",
-      "cause_tags": ["food_security"],
+      "cause_tags": [
+        "food_security"
+      ],
       "geography": "San Francisco Bay Area",
       "annual_budget": 60000000,
       "impact_metric": "Meals distributed per dollar, weighted toward fresh produce",
-      "ein": ""
+      "ein": "943041517"
     },
     {
       "name": "The Farmlink Project",
       "mission": "Moves surplus produce that would be left unharvested or landfilled from farms to food banks, covering the transport and labor costs that block the donation.",
-      "cause_tags": ["food_security", "climate"],
+      "cause_tags": [
+        "food_security",
+        "climate"
+      ],
       "geography": "United States",
       "annual_budget": 6000000,
       "impact_metric": "Pounds of surplus produce rescued per logistics dollar",
-      "ein": ""
+      "ein": "851398171"
     },
     {
       "name": "Replate",
       "mission": "Recovers surplus prepared food from Bay Area companies and caterers and delivers it same-day to community organizations, tracking both meals delivered and emissions avoided.",
-      "cause_tags": ["food_security", "climate"],
+      "cause_tags": [
+        "food_security",
+        "climate"
+      ],
       "geography": "San Francisco Bay Area",
       "annual_budget": 3000000,
       "impact_metric": "Meals rescued and methane emissions avoided per pickup route",
-      "ein": ""
+      "ein": "811005691"
+    },
+    {
+      "name": "SYNTHETIC TEST ORG - Lapsed Climate Coalition (NOT A REAL CHARITY)",
+      "mission": "Synthetic test fixture, not a real organization. Exists only to exercise the 501(c)(3) verification gate in the demo: it carries a revoked tax-exempt status so the exclusion path can be shown live. Any resemblance to a real nonprofit is unintended - no real organization in this dataset is marked revoked.",
+      "cause_tags": [
+        "climate"
+      ],
+      "geography": "San Francisco Bay Area",
+      "annual_budget": 2000000,
+      "impact_metric": "None - synthetic record used for testing the verification gate",
+      "ein": "000000000",
+      "synthetic": true,
+      "verification_status": "revoked",
+      "last_990_filing_year": 2019,
+      "synthetic_note": "FICTIONAL. Not a real charity. Not on any IRS list. Created for this project to demonstrate the revoked-status exclusion path."
     }
   ]
 }
