@@ -28,7 +28,16 @@ Judges: this is criterion 01. Every link below is real code, not a pointer to "s
 
 **The one sentence that matters for this criterion:** the matching decision — deterministic scoring, LLM reasoning, and the blend between them — happens entirely inside `MatchFinder`'s walker abilities as it physically traverses the graph. Nothing about *which nonprofit wins* lives in Python, in the frontend, or in a raw API call. Delete `walkers.jac` and there is no product left.
 
-**Jac ratio: 56.4%** of the codebase — 1,484 Jac lines vs. 1,149 non-Jac (`CLAUDE.md` excluded; 50.5% if you count it). Hand-counted with `wc -l`. Note that most of the non-Jac total is *data, not code*: 523 lines of it is JSON fixtures and seed records (`seed_data.json`, `fixtures/`). Excluding data files, the logic in this project is ~76% Jac — the only real non-Jac source is the 434-line single-file frontend.
+**Jac ratio: 50.8%** — 1,484 Jac lines vs. 1,438 non-Jac, `CLAUDE.md` excluded (**46.0%** if you count it). Hand-counted with `wc -l` against `git ls-files`, re-measured after each change rather than quoted from an earlier commit.
+
+| | lines |
+|---|---|
+| **Jac** (7 files) | **1,484** |
+| single-file frontend (`web/index.html`) | 712 |
+| JSON data — seed records + cached fixtures | 561 |
+| docs + config (`README.md`, `jac.toml`, `.gitignore`) | 165 |
+
+Worth reading the denominator honestly: **561 of those non-Jac lines are data, not code** — the seeded nonprofit records and the two cached fixture files — and another 712 are one deliberately un-frameworked HTML page. Counting only what is actually *program logic*, the project is **66.3% Jac** (1,484 vs. the 712-line frontend plus 41 lines of `jac.toml`). Every ranking decision lives on the Jac side of that line; the frontend renders what the walker already decided.
 
 ---
 
